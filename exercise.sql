@@ -38,7 +38,7 @@ WITH RECURSIVE prerequisites AS (
   SELECT course_id
   FROM prereq
   WHERE prereq_id = 'MAT15936'
-  UNION
+  UNION ALL
   SELECT p1.course_id
   FROM prereq p1
     INNER JOIN prerequisites p2 ON p1.prereq_id = p2.course_id
@@ -52,15 +52,36 @@ WHERE course_id IN (SELECT *
 -- 6.Disciplinas com número total de disciplinas das quais é pré-requisito direto ou indireto
 
 WITH RECURSIVE p AS (
-  SELECT *
-  FROM prereq p1
-    INNER JOIN prereq p2 ON p1.prereq_id = p2.course_id
+  SELECT course_id, prereq_id
+  FROM prereq
   UNION
-  SELECT *
+  SELECT p3.*
   FROM prereq p3
     INNER JOIN p p4 ON p3.prereq_id = p4.prereq_id
+), count_prereq AS (
+  SELECT course_id, COUNT(*) AS qtd_prereq
+  FROM p
+  GROUP BY course_id
 )
 
-SELECT c.title
+SELECT c.title, count_prereq.qtd_prereq
 FROM course c
-  INNER JOIN p ON p.prereq_id = c.course_id
+  INNER JOIN count_prereq ON count_prereq.course_id = c.course_id
+ORDER BY qtd_prereq DESC
+
+-- 6.1
+
+WITH RECURSIVE p AS (
+  SELECT prereq_id AS course_id, course_id AS dependent_id
+  FROM prereq
+
+  UNION
+
+  SELECT p.course_id, p2.course_id
+  FROM p JOIN prereq p2 ON p2.prereq_id = p.dependent_id
+)
+
+SELECT course.title, COUNT(*)
+FROM p JOIN course ON p.course_id = course.course_id
+GROUP BY course.title
+ORDER BY p.count desc
