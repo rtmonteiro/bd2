@@ -31,7 +31,19 @@ SELECT informacoes_adicionais->'areas-de-interesse' FROM pessoa WHERE informacoe
 SELECT informacoes_adicionais FROM pessoa WHERE informacoes_adicionais->'area' = '"back-end"';
 ```
 
+## Índice
+
+```sql
+CREATE INDEX idx_pessoa_informacoes_adicionais ON pessoa USING gin (informacoes_adicionais);
+```
+
+## Funções para json
+
 Tem diferença entre json e jsonb
+
+Mostrar diferença de perfomance com \timing ativado
+
+```sql
 
 ```sql
 SELECT json_object_keys(informacoes_adicionais) FROM pessoa;
