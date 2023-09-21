@@ -1,0 +1,89 @@
+#========================================================================
+# Copyright 2023 Universidade Federal do Espirito Santo
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# 
+# This program is released under license GNU GPL v3+ license.
+#
+#========================================================================
+
+# Docs:
+#   https://hub.docker.com/_/mysql
+#   https://dev.mysql.com/doc/refman/8.0/en/replication.html
+#
+# Refs:
+#   https://www.ctl.io/knowledge-base/servers/configuring-mysql-for-high-availability/
+#   https://github.com/vbabak/docker-mysql-master-slave/
+#   https://dev.mysql.com/doc/refman/8.0/en/change-master-to.html#:~:text=MASTER_LOG_POS%20is%20the%20numeric%20position,is%20for%20GTID%2Dbased%20replication.
+#   https://stackoverflow.com/questions/56190169/how-can-i-use-an-environment-variable-in-the-mysql-console
+#
+# How to run it:
+#   docker-compose up -d
+#
+# How to stop it:
+#   docker-compose down
+#
+# Tear down:
+#   docker volume prune
+
+version: "3.9"
+
+services:
+
+  # source node
+  principal:
+    container_name: db_principal
+    image: mysql:8
+    volumes:
+      - ./cnf/principal.cnf:/etc/mysql/my.cnf
+      - ./init:/docker-entrypoint-initdb.d
+    env_file:
+      - env/principal.env
+    restart: unless-stopped
+    networks:
+      - backend
+
+  # replica node
+  agent:
+    container_name: db_agent
+    image: mysql:8
+    volumes:
+      - ./cnf/agent.cnf:/etc/mysql/my.cnf
+    env_file:
+      - env/agent.env
+    depends_on:
+      - principal
+    restart: unless-stopped
+    networks:
+      - backend
+
+  adminer:
+    image: adminer
+    depends_on:
+      - principal
+      - agent
+    restart: unless-stopped
+    networks:
+      - backend
+      - frontend
+    ports:
+      - 8080:8080
+
+networks:
+
+  backend: # hidden from the world
+    internal: true
+
+  frontend: # visible to the world
+    driver: bridge
