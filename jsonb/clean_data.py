@@ -62,7 +62,6 @@ with open('products_amazon.csv', 'r') as csv_file:
     # Write the data to a new sql file
     with open('products_amazon.sql', 'w') as sql_file:
         sql_file.write("INSERT INTO products_amazon (id, name, category, price, description, details) VALUES\n")
-        line = 0
         for idx, product in enumerate(data):
             sql_file.write(f"""('{product.id}', '{product.name}', '{json.dumps(product.category)}', {product.price}, '{product.description}', '{product.details.toJSON()}'){',' if idx < (len(data) - 1) else ';'}
 """)
