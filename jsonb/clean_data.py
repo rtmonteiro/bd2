@@ -16,7 +16,7 @@ class Product:
     def __init__(self, id, name, category: str, selling_price: str, about_product, product_specification):
         self.id = id
         self.name = name.replace('"', '').replace("'", '')
-        self.category = a.strip() for a in category.replace('"', '').replace("'", '').split("|")
+        self.category = [a.strip() for a in category.replace('"', '').replace("'", '').split("|")]
         # Remove the currency symbol and get until the 2 numbers after the decimal point
         price = re.search(r'\$(\d+\.\d{2})',selling_price).group(1) if re.search(r'\$(\d+\.\d{2})',selling_price) else 0 
         self.price = float(price)
@@ -62,9 +62,9 @@ with open('products_amazon.csv', 'r') as csv_file:
     # Write the data to a new sql file
     with open('products_amazon.sql', 'w') as sql_file:
         sql_file.write("INSERT INTO products_amazon (id, name, category, price, description, details) VALUES\n")
-        for product in data:
-            sql_file.write(f"""('{product.id}', '{product.name}', '{product.category}', {product.price}, '{product.description}', '{product.details.toJSON()}'),
+        line = 0
+        for idx, product in enumerate(data):
+            sql_file.write(f"""('{product.id}', '{product.name}', '{json.dumps(product.category)}', {product.price}, '{product.description}', '{product.details.toJSON()}'){',' if idx < (len(data) - 1) else ';'}
 """)
-        sql_file.write(";")
 
     
