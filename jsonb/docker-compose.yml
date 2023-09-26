@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+
+  # PostgreSQL
+  db:
+    container_name: jsonb
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d/
+
+  # Adminer
+  adminer:
+    image: adminer
+    environment:
+      - ADMINER_DEFAULT_SERVER=db
+    ports:
+      - 8080:8080
+
