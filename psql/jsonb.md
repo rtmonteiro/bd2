@@ -44,8 +44,6 @@ Tem diferença entre json e jsonb
 Mostrar diferença de perfomance com \timing ativado
 
 ```sql
-
-```sql
 SELECT json_object_keys(informacoes_adicionais) FROM pessoa;
 ```
 
