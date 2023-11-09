@@ -17,6 +17,7 @@
 --  This program is released under license GNU GPL v3+ license.
 -- 
 -- ========================================================================
+USE `db_f1`;
 
 DROP PROCEDURE IF EXISTS `execAndCompareSQLSelect`;
 
@@ -24,8 +25,8 @@ DELIMITER ;;
 
 CREATE PROCEDURE `execAndCompareSQLSelect`(IN `key_stmt` varchar(8192), IN `user_stmt` varchar(8192), IN `chk_cols` tinyint, OUT `resp` int)
 proc_verify:BEGIN
-	# Exception handlher
-	# https://stackoverflow.com/questions/35867207/exception-using-try-catch-in-mysql-stored-procedure
+	-- Exception handlher
+	-- https://stackoverflow.com/questions/35867207/exception-using-try-catch-in-mysql-stored-procedure
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION 
 		BEGIN
 			-- body of handler
@@ -50,8 +51,8 @@ proc_verify:BEGIN
 			DROP TEMPORARY TABLE IF EXISTS temp2;
 		END;
 
-	# Create Temp tables
-	# http://www.mysqltutorial.org/mysql-temporary-table/
+	-- Create Temp tables
+	-- http://www.mysqltutorial.org/mysql-temporary-table/
 	SET @query := CONCAT('CREATE TEMPORARY TABLE temp1 ', key_stmt);
 	PREPARE dynamic_statement FROM @query;
 	EXECUTE dynamic_statement;
@@ -60,7 +61,7 @@ proc_verify:BEGIN
 	PREPARE dynamic_statement FROM @query;
 	EXECUTE dynamic_statement;
 
-	# Count number of columns
+	-- Count number of columns
 	SET @count_columns1 = 0;
 	SHOW COLUMNS FROM temp1
 	WHERE @count_columns1 := @count_columns1 + 1;
@@ -68,7 +69,7 @@ proc_verify:BEGIN
 	SHOW COLUMNS FROM temp2
 	WHERE @count_columns2 := @count_columns2 + 1;
 
-	# Leave procedure in case number of columns differs
+	-- Leave procedure in case number of columns differs
 	IF @count_columns1 <> @count_columns2 THEN
 		SET resp = 0;
 		DROP TEMPORARY TABLE temp1;
@@ -76,25 +77,25 @@ proc_verify:BEGIN
 		LEAVE proc_verify;
 	END IF;
 
-	# List temporary tables' columns
-	# https://stackoverflow.com/questions/25138810/list-temporary-table-columns-in-mysql
+	-- List temporary tables columns
+	-- https://stackoverflow.com/questions/25138810/list-temporary-table-columns-in-mysql
 	SET @columns_string1 = '';
 	SHOW COLUMNS FROM temp1
 	WHERE @columns_string1 := CONCAT(@columns_string1, '(a.`',`Field`, '` = b.`',`Field`, '` OR a.`',`Field`, '` IS NULL', ' OR b.`',`Field`, '` IS NULL) AND ');
-	# Strip last 5 characters of a string
-	# https://stackoverflow.com/questions/6080662/strip-last-two-characters-of-a-column-in-mysql
+	-- Strip last 5 characters of a string
+	-- https://stackoverflow.com/questions/6080662/strip-last-two-characters-of-a-column-in-mysql
 	SET @columns_string1 = LEFT(@columns_string1,length(@columns_string1)-5);
 	#SELECT @columns_string1;
 
 	SET @columns_string2 = '';
 	SHOW COLUMNS FROM temp2
 	WHERE @columns_string2 := CONCAT(@columns_string2, '(a.`',`Field`, '` = b.`',`Field`, '` OR a.`',`Field`, '` IS NULL', ' OR b.`',`Field`, '` IS NULL) AND ');
-	# Strip last 5 characters of a string
-	# https://stackoverflow.com/questions/6080662/strip-last-two-characters-of-a-column-in-mysql
+	-- Strip last 5 characters of a string
+	-- https://stackoverflow.com/questions/6080662/strip-last-two-characters-of-a-column-in-mysql
 	SET @columns_string2 = LEFT(@columns_string2,length(@columns_string2)-5);
 	#SELECT @columns_string2;
 
-	# Check if both queries have the same columns. If not, leave procedure
+	-- Check if both queries have the same columns. If not, leave procedure
 	IF chk_cols = TRUE AND @columns_string1 <> @columns_string2 THEN
 		SET resp = 0;
 		DROP TEMPORARY TABLE temp1;
@@ -102,22 +103,44 @@ proc_verify:BEGIN
 		LEAVE proc_verify;
 	END IF;
 
-	# Necessary in case we do not look for same column names
+	-- Check if both queries are ordered. If not, leave procedure
+	IF chk_order = TRUE AND NOT EXISTS (
+    SELECT *
+    FROM (
+        SELECT *
+        FROM temp1
+        ORDER BY DESC
+    ) AS q1
+    FULL OUTER JOIN (
+        SELECT *
+        FROM temp2
+        ORDER BY DESC
+    ) AS q2
+    ON q1.column1 = q2.column1 AND q1.column2 = q2.column2 AND ...
+    WHERE q1.column1 IS NULL OR q2.column1 IS NULL
+	) THEN
+			SET resp = 0;
+			DROP TEMPORARY TABLE temp1;
+			DROP TEMPORARY TABLE temp2;
+			LEAVE proc_verify;
+		END IF;
+
+	-- Necessary in case we do not look for same column names
 	SET @columns = '';
 	SHOW COLUMNS FROM temp1
 	WHERE @columns := CONCAT(@columns, '(a.`',`Field`, '` = b. OR a.`',`Field`, '` IS NULL', ' OR b. IS NULL) AND ');
-	# Strip last 5 characters of a string
-	# https://stackoverflow.com/questions/6080662/strip-last-two-characters-of-a-column-in-mysql
+	-- Strip last 5 characters of a string
+	-- https://stackoverflow.com/questions/6080662/strip-last-two-characters-of-a-column-in-mysql
 	SET @columns = LEFT(@columns,length(@columns)-5);
 	#SELECT @columns;
-	# Add 2nd query's column names to string. For each column name, we need to replace it twice
+	-- Add 2nd querys column names to string. For each column name, we need to replace it twice
 	SHOW COLUMNS FROM temp2
 	WHERE @columns := CONCAT(REPLACE(LEFT(CONCAT(REPLACE(LEFT(@columns, INSTR(@columns, 'b.')+1), 'b.', CONCAT('c.`',`Field`,'`')), SUBSTRING(@columns, INSTR(@columns, 'b.') + 2)), INSTR(CONCAT(REPLACE(LEFT(@columns, INSTR(@columns, 'b.')+1), 'b.', CONCAT('c.`',`Field`,'`')), SUBSTRING(@columns, INSTR(@columns, 'b.') + 2)), 'b.')+1), 'b.', CONCAT('c.`',`Field`,'`')), SUBSTRING(CONCAT(REPLACE(LEFT(@columns, INSTR(@columns, 'b.')+1), 'b.', CONCAT('c.`',`Field`,'`')), SUBSTRING(@columns, INSTR(@columns, 'b.') + 2)), INSTR(CONCAT(REPLACE(LEFT(@columns, INSTR(@columns, 'b.')+1), 'b.', CONCAT('c.`',`Field`,'`')), SUBSTRING(@columns, INSTR(@columns, 'b.') + 2)), 'b.') + 2));
 	#SELECT @columns;
 	SET @columns := REPLACE(@columns,'c.','b.');
 	#SELECT @columns;
 
-	# Leave procedure in case number of rows differs
+	-- Leave procedure in case number of rows differs
 	SELECT count(*) FROM temp1 INTO @num1;
 	SELECT count(*) FROM temp2 INTO @num2;
 	IF @num1 <> @num2 THEN
@@ -127,12 +150,12 @@ proc_verify:BEGIN
 		LEAVE proc_verify;
 	END IF;
 
-	# Checking whether two tables have identical content
-	# https://dba.stackexchange.com/questions/72641/checking-whether-two-tables-have-identical-content-in-postgresql
-	# Equivalent of EXCEPT in MySQL
-	# https://dba.stackexchange.com/questions/195592/what-is-an-equivalent-of-exceptin-postgresql-in-mysql
-	# Storing a variable with the result of an SELECT CASE
-	# https://stackoverflow.com/questions/7871014/mysql-storing-a-variable-with-the-result-of-an-select-case
+	-- Checking whether two tables have identical content
+	-- https://dba.stackexchange.com/questions/72641/checking-whether-two-tables-have-identical-content-in-postgresql
+	-- Equivalent of EXCEPT in MySQL
+	-- https://dba.stackexchange.com/questions/195592/what-is-an-equivalent-of-exceptin-postgresql-in-mysql
+	-- Storing a variable with the result of an SELECT CASE
+	-- https://stackoverflow.com/questions/7871014/mysql-storing-a-variable-with-the-result-of-an-select-case
 	SET @query = CONCAT(
 		'SELECT CASE WHEN EXISTS (SELECT DISTINCT * 
 								  FROM temp1 a 
