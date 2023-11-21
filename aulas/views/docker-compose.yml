@@ -1,0 +1,19 @@
+# Use postgres/example user/password credentials
+version: '3.1'
+
+services:
+
+  views-db:
+    image: postgres
+    restart: always
+    volumes:
+      - ./postgres_f1_dataset.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_USER: example
+      POSTGRES_PASSWORD: example
+
+  views-adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
