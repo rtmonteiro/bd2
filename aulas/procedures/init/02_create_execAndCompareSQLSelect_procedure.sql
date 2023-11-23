@@ -23,8 +23,17 @@ DROP PROCEDURE IF EXISTS `execAndCompareSQLSelect`;
 
 DELIMITER ;;
 
-CREATE PROCEDURE `execAndCompareSQLSelect`(IN `key_stmt` varchar(8192), IN `user_stmt` varchar(8192), IN `chk_cols` tinyint, OUT `resp` int)
+CREATE PROCEDURE `execAndCompareSQLSelect`(IN `key_stmt` varchar(8192), IN `user_stmt` varchar(8192), IN `chk_cols` tinyint, IN `chk_order` tinyint, OUT `resp` int)
 proc_verify:BEGIN
+	-- Declare variables
+	DECLARE rec1 INT;
+	DECLARE rec2 INT;
+	DECLARE done INT DEFAULT FALSE;
+
+	-- Declare cursor
+	DECLARE cur1 CURSOR FOR SELECT * FROM temp1;
+	DECLARE cur2 CURSOR FOR SELECT * FROM temp2;
+
 	-- Exception handlher
 	-- https://stackoverflow.com/questions/35867207/exception-using-try-catch-in-mysql-stored-procedure
 	DECLARE EXIT HANDLER FOR SQLEXCEPTION 
@@ -103,27 +112,38 @@ proc_verify:BEGIN
 		LEAVE proc_verify;
 	END IF;
 
-	-- Check if both queries are ordered. If not, leave procedure
-	IF chk_order = TRUE AND NOT EXISTS (
-    SELECT *
-    FROM (
-        SELECT *
-        FROM temp1
-        ORDER BY DESC
-    ) AS q1
-    FULL OUTER JOIN (
-        SELECT *
-        FROM temp2
-        ORDER BY DESC
-    ) AS q2
-    ON q1.column1 = q2.column1 AND q1.column2 = q2.column2 AND ...
-    WHERE q1.column1 IS NULL OR q2.column1 IS NULL
-	) THEN
+	-- Create a cursor and if there is an element in one table that is not in the same position in the other table, leave procedure
+	IF chk_order = TRUE THEN
+
+		OPEN cur1;
+		OPEN cur2;
+
+		read_loop: LOOP
+		FETCH cur1 INTO rec1;
+		FETCH cur2 INTO rec2;
+
+		IF done THEN
+			LEAVE read_loop;
+		END IF;
+
+		IF rec1 <> rec2 THEN
 			SET resp = 0;
-			DROP TEMPORARY TABLE temp1;
-			DROP TEMPORARY TABLE temp2;
+			CLOSE cur1;
+			CLOSE cur2;
 			LEAVE proc_verify;
 		END IF;
+		END LOOP;
+
+		CLOSE cur1;
+		CLOSE cur2;
+	END IF;
+	-- Check if both queries are ordered. If not, leave procedure
+	-- IF NOT (position('ORDER BY' in key_stmt) > 0 AND position('ORDER BY' in user_stmt) > 0) THEN
+	-- 	SET resp = 0;
+	-- 	DROP TEMPORARY TABLE temp1;
+	-- 	DROP TEMPORARY TABLE temp2;
+	-- 	LEAVE proc_verify;
+	-- END IF;
 
 	-- Necessary in case we do not look for same column names
 	SET @columns = '';
